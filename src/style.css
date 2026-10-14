@@ -1,0 +1,300 @@
+/*
+ * SPDX-FileCopyrightText: 2026 The Fisher Slopworks Co
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ *
+ * The table is the page. Everything else floats over the felt in the org's
+ * colours: bone for text, one signal teal for what is selected, mono for
+ * every machine value.
+ */
+
+:root {
+  --ink: #071522;
+  --bone: #e7eef1;
+  --slate: #92a6b5;
+  --signal: #46e5c4;
+  --signal-ink: #04231c;
+  --glass: rgb(7 21 34 / 0.55);
+  --rule: rgb(231 238 241 / 0.12);
+  --sans: "Archivo", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --edge: max(16px, env(safe-area-inset-left));
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body {
+  height: 100%;
+  overflow: hidden;
+  background: #061314;
+  color: var(--bone);
+  font-family: var(--sans);
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+#table {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  touch-action: none;
+  cursor: grab;
+}
+
+#table:active {
+  cursor: grabbing;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+:focus-visible {
+  outline: 2px solid var(--signal);
+  outline-offset: 2px;
+}
+
+/* ---------------------------------------------------------------- top bar */
+
+.bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: max(12px, env(safe-area-inset-top)) var(--edge) 0;
+  pointer-events: none;
+}
+
+.bar > * {
+  pointer-events: auto;
+}
+
+.brand {
+  font: 500 0.72rem/1 var(--mono);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--slate);
+  text-decoration: none;
+}
+
+.brand span {
+  color: var(--signal);
+  margin: 0 0.25em;
+}
+
+.toggles {
+  display: flex;
+  gap: 4px;
+}
+
+.toggle {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: var(--slate);
+  transition:
+    color 0.2s,
+    background 0.2s;
+}
+
+.toggle:hover {
+  background: var(--glass);
+}
+
+.toggle svg {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.toggle[aria-pressed="true"] {
+  color: var(--bone);
+}
+
+.toggle[aria-pressed="true"] .off,
+.toggle[aria-pressed="false"] .on {
+  display: none;
+}
+
+/* ---------------------------------------------------------------- result */
+
+.result {
+  position: fixed;
+  top: max(52px, calc(env(safe-area-inset-top) + 40px));
+  left: 0;
+  right: 0;
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  pointer-events: none;
+  text-shadow: 0 2px 18px rgb(0 0 0 / 0.45);
+}
+
+.value {
+  font: 700 clamp(4.2rem, 17vw, 7.5rem) / 1 var(--sans);
+  font-stretch: 112%;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  min-height: 1em;
+  color: var(--bone);
+  transition:
+    opacity 0.25s,
+    transform 0.25s;
+}
+
+.value[data-state="rolling"] {
+  opacity: 0.18;
+  transform: scale(0.92);
+}
+
+.value[data-state="shown"] {
+  animation: land 0.42s cubic-bezier(0.2, 1.5, 0.4, 1);
+}
+
+@keyframes land {
+  from {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.85);
+  }
+}
+
+.caption {
+  font: 500 0.72rem/1 var(--mono);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--slate);
+  min-height: 1em;
+}
+
+.history {
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
+  list-style: none;
+  font: 400 0.8rem/1 var(--mono);
+  color: var(--slate);
+  min-height: 1em;
+}
+
+.history li {
+  opacity: calc(1 - var(--i) * 0.14);
+}
+
+/* ---------------------------------------------------------------- dock */
+
+.dock {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  padding: 0 0 max(14px, env(safe-area-inset-bottom));
+  pointer-events: none;
+}
+
+.hint {
+  font: 400 0.75rem/1 var(--mono);
+  letter-spacing: 0.08em;
+  color: var(--slate);
+  text-shadow: 0 1px 10px rgb(0 0 0 / 0.5);
+  transition: opacity 0.6s;
+}
+
+.hint[hidden] {
+  display: block;
+  opacity: 0;
+}
+
+.action {
+  pointer-events: auto;
+  height: 40px;
+  padding: 0 22px;
+  border-radius: 20px;
+  background: var(--glass);
+  box-shadow: inset 0 0 0 1px var(--signal);
+  color: var(--signal);
+  font: 500 0.8rem/1 var(--mono);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.action:active {
+  background: var(--signal);
+  color: var(--signal-ink);
+}
+
+.picker {
+  pointer-events: auto;
+  display: flex;
+  gap: 6px;
+  max-width: 100%;
+  padding: 6px var(--edge);
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
+  mask-image: linear-gradient(
+    to right,
+    transparent,
+    #000 var(--edge),
+    #000 calc(100% - var(--edge)),
+    transparent
+  );
+}
+
+.picker::-webkit-scrollbar {
+  display: none;
+}
+
+.chip {
+  flex: none;
+  scroll-snap-align: center;
+  min-width: 48px;
+  height: 40px;
+  padding: 0 10px;
+  border-radius: 20px;
+  background: var(--glass);
+  box-shadow: inset 0 0 0 1px var(--rule);
+  font: 500 0.85rem/1 var(--mono);
+  color: var(--slate);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transition:
+    background 0.18s,
+    color 0.18s;
+}
+
+.chip:hover {
+  color: var(--bone);
+}
+
+.chip[aria-checked="true"] {
+  background: var(--signal);
+  color: var(--signal-ink);
+  box-shadow: none;
+}

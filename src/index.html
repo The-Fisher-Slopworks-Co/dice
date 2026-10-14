@@ -1,0 +1,119 @@
+<!doctype html>
+<!--
+  SPDX-FileCopyrightText: 2026 The Fisher Slopworks Co
+  SPDX-License-Identifier: AGPL-3.0-or-later
+-->
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no"
+    />
+    <title>Dice · The Fisher Slopworks Co</title>
+    <meta
+      name="description"
+      content="Roll a die on a felt table: d1 to d20, real rigid-body physics, haptics and shake to roll."
+    />
+    <meta name="theme-color" content="#071522" />
+    <link rel="canonical" href="https://dice.slopworks.org/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://dice.slopworks.org/" />
+    <meta property="og:site_name" content="The Fisher Slopworks Co" />
+    <meta property="og:title" content="Dice" />
+    <meta
+      property="og:description"
+      content="Roll a die on a felt table, with physics you can feel."
+    />
+    <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@100..125,400..700&family=IBM+Plex+Mono:wght@400;500&display=swap"
+    />
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <canvas
+      id="table"
+      aria-label="Felt table with a die. Tap to roll."
+    ></canvas>
+
+    <header class="bar">
+      <a class="brand" href="https://slopworks.org/"
+        >slopworks<span>/</span>dice</a
+      >
+      <div class="toggles">
+        <button
+          id="sound"
+          class="toggle"
+          type="button"
+          aria-pressed="true"
+          aria-label="Sound"
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M4 9h4l5-4v14l-5-4H4z" />
+            <path
+              class="on"
+              d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"
+            />
+            <path class="off" d="M17 9l5 6M22 9l-5 6" />
+          </svg>
+        </button>
+        <button
+          id="haptics"
+          class="toggle"
+          type="button"
+          aria-pressed="true"
+          aria-label="Haptics"
+          hidden
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <rect x="8" y="3" width="8" height="18" rx="2" />
+            <path class="on" d="M4.5 8v8M2 10v4M19.5 8v8M22 10v4" />
+            <path class="off" d="M3 3l18 18" />
+          </svg>
+        </button>
+        <button
+          id="shake"
+          class="toggle"
+          type="button"
+          aria-pressed="false"
+          aria-label="Shake to roll"
+          hidden
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <rect
+              x="8"
+              y="3"
+              width="8"
+              height="18"
+              rx="2"
+              transform="rotate(-14 12 12)"
+            />
+            <path
+              class="on"
+              d="M3.5 6.5l-1.5 2M3 13l-1.6 1.2M20.5 10.5l1.6-1.2M21 17.5l1.5-2"
+            />
+            <path class="off" d="M3 3l18 18" />
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <section class="result" aria-live="polite">
+      <output id="value" class="value" data-state="idle"></output>
+      <p id="caption" class="caption"></p>
+      <ol id="history" class="history" aria-label="Earlier rolls"></ol>
+    </section>
+
+    <footer class="dock">
+      <p id="hint" class="hint">Tap to roll · drag to throw</p>
+      <button id="twirl" class="action" type="button" hidden>Spin</button>
+      <div id="picker" class="picker" role="radiogroup" aria-label="Die"></div>
+    </footer>
+
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

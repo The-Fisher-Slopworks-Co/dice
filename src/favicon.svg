@@ -1,0 +1,14 @@
+<!--
+  SPDX-FileCopyrightText: 2026 The Fisher Slopworks Co
+  SPDX-License-Identifier: AGPL-3.0-or-later
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect width="64" height="64" rx="14" fill="#071522"/>
+  <path d="M32 8 53 20v24L32 56 11 44V20z" fill="#efe8d8"/>
+  <path d="M32 8 53 20 32 32 11 20z" fill="#fff"/>
+  <path d="M32 32v24L11 44V20z" fill="#d9d1bf"/>
+  <circle cx="32" cy="20" r="3.2" fill="#0b1f2e"/>
+  <circle cx="18" cy="31" r="3" fill="#0b1f2e"/>
+  <circle cx="25" cy="44" r="3" fill="#0b1f2e"/>
+  <circle cx="42.5" cy="38" r="3" fill="#46e5c4"/>
+</svg>

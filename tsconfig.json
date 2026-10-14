@@ -1,0 +1,35 @@
+{
+  "compilerOptions": {
+    // Environment setup & latest features
+    // A browser app: the DOM is the platform. Bun's types still come in for
+    // the tests and the build script.
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
+    "target": "ESNext",
+    "module": "Preserve",
+    "moduleDetection": "force",
+    "allowJs": true,
+
+    // Bundler mode
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "noEmit": true,
+
+    // Best practices
+    "strict": true,
+    "skipLibCheck": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitReturns": true,
+    // An optional property means "may be absent", not "may be present and
+    // undefined" — so a maybe-undefined value can't be forwarded into one by
+    // accident.
+    "exactOptionalPropertyTypes": true,
+
+    // Some stricter flags (disabled by default)
+    "noPropertyAccessFromIndexSignature": false
+  }
+}

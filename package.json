@@ -1,0 +1,33 @@
+{
+  "name": "dice",
+  "type": "module",
+  "private": true,
+  "license": "AGPL-3.0-or-later",
+  "scripts": {
+    "dev": "bun ./src/index.html ./src/gallery/index.html",
+    "build": "bun ./scripts/build.ts",
+    "simulate": "bun ./scripts/simulate.ts",
+    "test": "bun test src",
+    "typecheck": "bunx tsc --noEmit",
+    "lint": "oxlint",
+    "format": "prettier --write \"src/**/*.{ts,css,html}\" \"scripts/**/*.ts\"",
+    "format:check": "prettier --check \"src/**/*.{ts,css,html}\" \"scripts/**/*.ts\"",
+    "knip": "knip",
+    "reuse": "uvx --from 'reuse[charset-normalizer]' reuse lint",
+    "check": "bun run typecheck && bun run lint && bun run format:check && bun run knip && bun run reuse && bun run test",
+    "prepare": "lefthook install"
+  },
+  "dependencies": {
+    "cannon-es": "^0.20.0",
+    "three": "^0.186.1"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.4.3",
+    "@types/three": "^0.186.0",
+    "knip": "^6.41.0",
+    "lefthook": "^2.2.2",
+    "oxlint": "^1.88.0",
+    "prettier": "^3.9.10",
+    "typescript": "^5"
+  }
+}
