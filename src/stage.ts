@@ -24,9 +24,20 @@ import {
   type Quaternion,
 } from "three";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
-import type { Bounds } from "./physics.ts";
+import { BUMP_HEIGHT, BUMP_RADIUS, type Bounds } from "./physics.ts";
 
 const FELT = "#103a3b";
+/** Side of the felt floor, world units. */
+const TABLE = 200;
+/**
+ * The felt a bump raises: a patch of the floor, fine enough to bend, that
+ * reaches a little past the foot of the physics hump so its rise can fade
+ * smoothly into the flat felt.
+ */
+const BUMP_FOOT = Math.sqrt(
+  BUMP_RADIUS ** 2 - (BUMP_RADIUS - BUMP_HEIGHT) ** 2,
+);
+const BUMP_REACH = BUMP_FOOT * 1.3;
 /** Shortest side of the visible table, world units: about four dice across. */
 const SHORT_SIDE = 9.5;
 /** Camera lean from straight down: enough to see the dice as solids. */
@@ -38,6 +49,7 @@ export class Stage {
   private readonly scene = new Scene();
   private readonly camera = new PerspectiveCamera(FOV, 1, 0.1, 200);
   private die: Mesh | null = null;
+  private readonly bump: Mesh<PlaneGeometry>;
 
   constructor(canvas: HTMLCanvasElement) {
     const renderer = new WebGLRenderer({ canvas, antialias: true });
@@ -70,10 +82,19 @@ export class Stage {
     scene.add(key, key.target);
     scene.add(new HemisphereLight(0xdfeeff, 0x0a2224, 0.55));
 
-    const floor = new Mesh(new PlaneGeometry(200, 200), feltMaterial());
+    const felt = feltMaterial();
+    const floor = new Mesh(new PlaneGeometry(TABLE, TABLE), felt);
     floor.rotation.x = -Math.PI / 2;
     floor.receiveShadow = true;
     scene.add(floor);
+
+    // The same felt as the floor, so the weave runs on over the hump; it
+    // sits a hair above the floor so the two never fight where it is flat.
+    const bump = new Mesh(bumpGeometry(), felt);
+    bump.castShadow = bump.receiveShadow = true;
+    bump.visible = false;
+    this.bump = bump;
+    scene.add(bump);
   }
 
   /** Fits the camera to the window; returns the table area it now shows. */
@@ -127,6 +148,28 @@ export class Stage {
     this.die.quaternion.copy(rotation);
   }
 
+  /** Raises the felt over the physics hump: its ball's centre, `x y z`. */
+  syncBump(x: number, y: number, z: number): void {
+    const bump = this.bump;
+    const rise = Math.min((y + BUMP_RADIUS) / BUMP_HEIGHT, 1);
+    bump.visible = rise > 0;
+    if (!bump.visible) return;
+    bump.scale.y = rise;
+    if (bump.position.x === x && bump.position.z === z) return;
+    bump.position.set(x, 0.003, z);
+    // Map the weave by where the patch lies on the floor, as the floor does.
+    const position = bump.geometry.attributes.position!;
+    const uv = bump.geometry.attributes.uv!;
+    for (let i = 0; i < position.count; i++) {
+      uv.setXY(
+        i,
+        (position.getX(i) + x) / TABLE + 0.5,
+        0.5 - (position.getZ(i) + z) / TABLE,
+      );
+    }
+    uv.needsUpdate = true;
+  }
+
   render(): void {
     this.renderer.render(this.scene, this.camera);
   }
@@ -152,6 +195,23 @@ export class Stage {
     ray.ray.intersectPlane(new Plane(new Vector3(0, 1, 0), -height), hit);
     return hit;
   }
+}
+
+/**
+ * A square of felt bent up into a round hump as high as the physics one and
+ * as round on top, easing out to flat at its edge so there is no crease.
+ */
+function bumpGeometry(): PlaneGeometry {
+  const geometry = new PlaneGeometry(BUMP_REACH * 2, BUMP_REACH * 2, 64, 64);
+  geometry.rotateX(-Math.PI / 2);
+  const position = geometry.attributes.position!;
+  for (let i = 0; i < position.count; i++) {
+    const r = Math.hypot(position.getX(i), position.getZ(i)) / BUMP_REACH;
+    const fall = Math.max(0, 1 - r * r);
+    position.setY(i, BUMP_HEIGHT * fall * fall);
+  }
+  geometry.computeVertexNormals();
+  return geometry;
 }
 
 /**
