@@ -26,9 +26,20 @@ const STEP = 1 / 180;
 const CEILING = 9;
 const TUMBLE_DAMPING = 0.4;
 const TWIRL_DAMPING = 0.05;
+/** A coin leaning less than this far from upright (cos) can be flicked on. */
+const STILL_UP = Math.cos((40 * Math.PI) / 180);
 /** How fast felt slows a rolling die, and a rolling ball, per second. */
 const ROLLING_DRAG = 3;
 const BALL_DRAG = 4;
+/**
+ * A finger pressed up under the felt: a low round hump, the top of a ball
+ * this big poking out this far.
+ */
+export const BUMP_RADIUS = 1.6;
+export const BUMP_HEIGHT = 0.45;
+/** How fast the hump rises and sinks, and follows the finger, per second. */
+const BUMP_RISE = 6;
+const BUMP_FOLLOW = 30;
 
 export interface Bounds {
   minX: number;
@@ -68,6 +79,12 @@ export class Table {
   private sinceRoll = 0;
   private accumulator = 0;
   private bounds: Bounds = { minX: -4, maxX: 4, minZ: -6, maxZ: 6 };
+  private readonly bump = new Body({
+    type: Body.KINEMATIC,
+    material: felt,
+    shape: new Sphere(BUMP_RADIUS),
+  });
+  private bumpAt: Vec3 | null = null;
 
   constructor() {
     this.world.allowSleep = false;
@@ -92,6 +109,8 @@ export class Table {
       this.world.addBody(wall);
     }
     this.placeWalls();
+    this.bump.position.set(0, -BUMP_RADIUS - 0.05, 0);
+    this.world.addBody(this.bump);
   }
 
   setBounds(bounds: Bounds): void {
@@ -172,6 +191,17 @@ export class Table {
   twirl(): void {
     const die = this.die;
     if (!die) return;
+    // Still up on its rim and turning: flick it again, faster, instead of
+    // standing it back up from scratch.
+    const axis = die.quaternion.vmult(new Vec3(0, 1, 0));
+    const spinning = Math.abs(die.angularVelocity.y);
+    if (Math.abs(axis.y) < STILL_UP && spinning > 2) {
+      const sign = Math.sign(die.angularVelocity.y);
+      die.angularVelocity.y = sign * (spinning + rand(14, 20));
+      this.wake();
+      die.angularDamping = TWIRL_DAMPING;
+      return;
+    }
     const { minX, maxX, minZ, maxZ } = this.bounds;
     const r = this.dieRadius + 0.4;
     die.position.set(
@@ -216,6 +246,16 @@ export class Table {
     );
     this.spin(10 + Math.min(speed, cap) * 0.8);
     this.wake();
+  }
+
+  /** Raises a hump in the felt under a finger at `at`, or lets it sink. */
+  press(at: Vec3 | null): void {
+    this.bumpAt = at;
+  }
+
+  /** The ball whose top is the hump; under the felt when it is down. */
+  get bumpCenter(): Vec3 {
+    return this.bump.position;
   }
 
   /** Holds the die under a finger, at `target`, or lets go with `null`. */
@@ -291,12 +331,45 @@ export class Table {
       if (this.held) this.followHand(die, this.held);
       before.copy(die.velocity);
       spinBefore.copy(die.angularVelocity);
+      this.moveBump();
       this.world.step(STEP);
+      // Lifting a die off its rest is a throw of sorts: give it time again.
+      if (this.touchesBump(die)) this.sinceRoll = 0;
       this.feltDrag(die);
       if (!this.held) this.detectImpact(die, before, spinBefore, impacts);
       this.trackStillness(die);
     }
     return impacts;
+  }
+
+  /**
+   * The hump is a kinematic ball: it moves at a velocity, so a die it lifts
+   * is pushed rather than teleported. Sunk under the felt it touches
+   * nothing and jumps straight to wherever the next press is.
+   */
+  private moveBump(): void {
+    const bump = this.bump;
+    const at = this.bumpAt;
+    const sunk = bump.position.y + BUMP_RADIUS < 0;
+    if (at && sunk) bump.position.set(at.x, bump.position.y, at.z);
+    const top = at ? BUMP_HEIGHT : -0.05;
+    const toward = new Vec3(
+      (at?.x ?? bump.position.x) - bump.position.x,
+      0,
+      (at?.z ?? bump.position.z) - bump.position.z,
+    ).scale(1 / STEP);
+    const fast = toward.length();
+    if (fast > BUMP_FOLLOW) toward.scale(BUMP_FOLLOW / fast, toward);
+    const rise = (top - BUMP_RADIUS - bump.position.y) / STEP;
+    toward.y = clamp(rise, -BUMP_RISE, BUMP_RISE);
+    bump.velocity.copy(toward);
+  }
+
+  private touchesBump(die: Body): boolean {
+    const bump = this.bump;
+    return this.world.contacts.some(
+      (c) => (c.bi === bump && c.bj === die) || (c.bi === die && c.bj === bump),
+    );
   }
 
   private followHand(die: Body, target: Vec3): void {
@@ -361,8 +434,11 @@ export class Table {
       this.stillFor = 0;
     } else this.stillFor += STEP;
     // A die can rock on a rounded edge for a long while. Past this point
-    // the table calls it, and a cocked result gets a nudge from outside.
-    if (this.sinceRoll > 9 && !this.held)
+    // the table calls it, and a cocked result gets a nudge from outside. A
+    // coin still twirling on its rim is not rocking: it gets to spin down.
+    const twirling =
+      die.angularDamping === TWIRL_DAMPING && die.angularVelocity.length() > 5;
+    if (this.sinceRoll > 9 && !this.held && !twirling)
       this.stillFor = Math.max(this.stillFor, 0.31);
   }
 

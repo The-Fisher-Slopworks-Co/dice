@@ -53,6 +53,11 @@ let phase: "rolling" | "resting" = "rolling";
 let spec: DieSpec = dieSpec(20);
 let rolls: number[] = [];
 const rotation = new Quaternion();
+/** What the hint says about the dice in general, and about the coin. */
+let rollHint = "Tap to roll · drag to throw";
+const BUMP_HINT = "Press the felt to raise a bump";
+/** Shown until the first bump: the coin's hint is not hidden by a roll. */
+let bumped = false;
 
 // ---------------------------------------------------------------- settings
 
@@ -131,6 +136,13 @@ function choose(sides: number): void {
   valueEl.dataset.state = "rolling";
   captionEl.textContent = `d${sides}`;
   twirlButton.hidden = sides !== 2;
+  if (sides === 2 && !bumped) {
+    hintEl.textContent = BUMP_HINT;
+    hintEl.hidden = false;
+  } else if (hintEl.textContent === BUMP_HINT) {
+    hintEl.textContent = rollHint;
+    hintEl.hidden = true;
+  }
   store.set("sides", String(sides));
   history.replaceState(null, "", `#d${sides}`);
   for (const chip of picker.children as HTMLCollectionOf<HTMLElement>) {
@@ -157,7 +169,7 @@ twirlButton.addEventListener("click", () => {
 function startRolling(): void {
   phase = "rolling";
   valueEl.dataset.state = "rolling";
-  hintEl.hidden = true;
+  if (hintEl.textContent !== BUMP_HINT) hintEl.hidden = true;
 }
 
 function land(value: number): void {
@@ -187,20 +199,41 @@ function renderHistory(): void {
 
 /**
  * A tap rolls. A drag picks the die up: it flies to the finger and follows
- * it, and letting go throws it with the finger's own speed.
+ * it, and letting go throws it with the finger's own speed. With the coin
+ * out, pressing the felt anywhere but on the coin raises a bump there
+ * instead, which follows the finger and sinks when it lets go.
  */
-let press: { id: number; x: number; y: number; t: number } | null = null;
+let press: {
+  id: number;
+  x: number;
+  y: number;
+  t: number;
+  bump: boolean;
+} | null = null;
 const trail: { p: Vector3; t: number }[] = [];
 
 canvas.addEventListener("pointerdown", (e) => {
   if (press) return;
   sound.unlock();
   canvas.setPointerCapture(e.pointerId);
-  press = { id: e.pointerId, x: e.clientX, y: e.clientY, t: e.timeStamp };
+  const bump = spec.sides === 2 && !onDie(e.clientX, e.clientY);
+  press = { id: e.pointerId, x: e.clientX, y: e.clientY, t: e.timeStamp, bump };
+  if (!bump) return;
+  pressFelt(e.clientX, e.clientY);
+  haptics.impact(0.3);
+  if (!bumped) {
+    bumped = true;
+    hintEl.hidden = true;
+    hintEl.textContent = rollHint;
+  }
 });
 
 canvas.addEventListener("pointermove", (e) => {
   if (!press || e.pointerId !== press.id) return;
+  if (press.bump) {
+    pressFelt(e.clientX, e.clientY);
+    return;
+  }
   const target = stage.pointerOnTable(e.clientX, e.clientY, CARRY);
   if (!table.isHeld) {
     if (Math.hypot(e.clientX - press.x, e.clientY - press.y) < 10) return;
@@ -212,9 +245,27 @@ canvas.addEventListener("pointermove", (e) => {
   while (trail.length > 2 && e.timeStamp - trail[0]!.t > 90) trail.shift();
 });
 
+function onDie(clientX: number, clientY: number): boolean {
+  const body = table.dieBody;
+  if (!body) return false;
+  const p = stage.pointerOnTable(clientX, clientY, body.position.y);
+  const reach = spec.radius * 1.3;
+  return Math.hypot(p.x - body.position.x, p.z - body.position.z) < reach;
+}
+
+function pressFelt(clientX: number, clientY: number): void {
+  const p = stage.pointerOnTable(clientX, clientY, 0);
+  table.press(new Vec3(p.x, 0, p.z));
+}
+
 function release(e: PointerEvent): void {
   if (!press || e.pointerId !== press.id) return;
+  const { bump } = press;
   press = null;
+  if (bump) {
+    table.press(null);
+    return;
+  }
   if (!table.isHeld) {
     roll();
     return;
@@ -265,9 +316,10 @@ function setupShake(): void {
   const enable = (on: boolean) => {
     shakeButton.ariaPressed = String(on);
     store.set("shake", on ? "on" : "off");
-    hintEl.textContent = on
+    rollHint = on
       ? "Tap to roll · drag to throw · shake"
       : "Tap to roll · drag to throw";
+    if (hintEl.textContent !== BUMP_HINT) hintEl.textContent = rollHint;
     if (on) listen();
   };
   shakeButton.hidden = false;
@@ -334,6 +386,10 @@ stage.renderer.setAnimationLoop((now) => {
   const q = body.quaternion;
   rotation.set(q.x, q.y, q.z, q.w);
   stage.syncDie(body.position.x, body.position.y, body.position.z, rotation);
+  const hump = table.bumpCenter;
+  stage.syncBump(hump.x, hump.y, hump.z);
+  // A bump that lifts the coin off its rest rolls it again.
+  if (phase === "resting" && press?.bump && !table.settled) startRolling();
   if (phase !== "resting" && table.settled) {
     const outcome = readOutcome(spec, rotation);
     if (outcome.flatness < COCKED_BELOW) table.nudge();
