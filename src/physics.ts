@@ -29,6 +29,18 @@ const TWIRL_DAMPING = 0.05;
 /** How fast felt slows a rolling die, and a rolling ball, per second. */
 const ROLLING_DRAG = 3;
 const BALL_DRAG = 4;
+/**
+ * Felt gives under a ball and holds it back by a fixed amount, however slow
+ * it rolls, so a roly-poly stops rocking instead of fading out for seconds.
+ * Radians per second, per second.
+ */
+const ROLLING_RESISTANCE = 1.5;
+/**
+ * A hand spins a ball far less than a die: it leaves the fingers rolling,
+ * and its weight swings round the centre of mass, so a die's spin turns it
+ * into a wild wobble.
+ */
+const BALL_SPIN = 0.3;
 
 export interface Bounds {
   minX: number;
@@ -126,6 +138,16 @@ export class Table {
         : polyhedron(spec.collision),
       new Vec3(0, spec.ballast, 0),
     );
+    if (spec.inertia) {
+      const { x, y, z } = spec.inertia;
+      die.inertia.set(x, y, z).scale(die.mass, die.inertia);
+      die.invInertia.set(
+        1 / die.inertia.x,
+        1 / die.inertia.y,
+        1 / die.inertia.z,
+      );
+      die.updateInertiaWorld(true);
+    }
     die.position.set(
       (this.bounds.minX + this.bounds.maxX) / 2,
       4,
@@ -136,7 +158,7 @@ export class Table {
     this.die = die;
     this.dieRadius = spec.radius;
     this.ballast = spec.ballast;
-    this.spin(rand(22, 34));
+    this.spin(rand(22, 34) * this.handSpin);
     this.wake();
   }
 
@@ -161,7 +183,7 @@ export class Table {
       rand(9, 13),
       Math.sin(heading) * speed,
     );
-    this.spin(rand(22, 34));
+    this.spin(rand(22, 34) * this.handSpin);
     this.wake();
   }
 
@@ -214,7 +236,7 @@ export class Table {
       Math.max(velocity.y, 2) + speed * 0.12,
       velocity.z,
     );
-    this.spin(10 + Math.min(speed, cap) * 0.8);
+    this.spin((10 + Math.min(speed, cap) * 0.8) * this.handSpin);
     this.wake();
   }
 
@@ -257,8 +279,16 @@ export class Table {
       rand(3, 4.5) * Math.min(k, 2),
       away.z * push,
     );
-    this.spin(rand(5, 8) * k);
     this.stillFor = 0;
+    if (!this.ballast) {
+      this.spin(rand(5, 8) * k);
+      return;
+    }
+    // A weighted ball stuck on the rim leans with its weight toward it, and
+    // the felt holds it there. Set down near the rim it rolls straight back,
+    // so it is knocked well clear: rolling back it rights itself first.
+    die.velocity.set(away.x * 8, 6, away.z * 8);
+    die.angularVelocity.set(0, 0, 0);
   }
 
   get isHeld(): boolean {
@@ -341,7 +371,12 @@ export class Table {
     const drag = 1 - (this.ballast ? BALL_DRAG : ROLLING_DRAG) * STEP;
     die.angularVelocity.x *= drag;
     die.angularVelocity.z *= drag;
-    if (this.ballast) die.angularVelocity.y *= 1 - 4 * STEP;
+    if (!this.ballast) return;
+    die.angularVelocity.y *= 1 - 4 * STEP;
+    const turning = die.angularVelocity.length();
+    if (turning === 0) return;
+    const left = Math.max(0, turning - ROLLING_RESISTANCE * STEP);
+    die.angularVelocity.scale(left / turning, die.angularVelocity);
   }
 
   /**
@@ -364,6 +399,11 @@ export class Table {
     // the table calls it, and a cocked result gets a nudge from outside.
     if (this.sinceRoll > 9 && !this.held)
       this.stillFor = Math.max(this.stillFor, 0.31);
+  }
+
+  /** How much of a die's spin a throw gives this one. */
+  private get handSpin(): number {
+    return this.ballast ? BALL_SPIN : 1;
   }
 
   private spin(rate: number, keep = false): void {

@@ -60,6 +60,12 @@ export interface DieSpec {
    * it is a weighted ball, a roly-poly that always rights itself 1 up.
    */
   ballast: number;
+  /**
+   * Principal moments of inertia per unit mass about the centre of mass,
+   * y up. Left out, the physics takes the die for a box filling its bounds,
+   * which is close for a solid but far off for a ball with a slug inside.
+   */
+  inertia?: Vector3;
 }
 
 const UP = new Vector3(0, 1, 0);
@@ -148,7 +154,46 @@ function trapezohedronPoints(n: number): Vector3[] {
   return out;
 }
 
+/**
+ * The d1 is cast resin with its bottom cap filled with tungsten-loaded
+ * resin, the way a roly-poly carries its weight in a heavy base rather than
+ * at a single point. Cap height is a fraction of the ball's diameter;
+ * densities are g/cm³.
+ */
+const RESIN = 1.2;
+const BASE = 11;
+const BASE_HEIGHT = 0.3;
+
 function sphere(): DieSpec {
+  const radius = 0.85;
+  // Sum the ball up cell by cell, on a unit sphere: its mass, how low that
+  // mass sits, and how it resists turning about its centre of mass.
+  const n = 48;
+  let mass = 0;
+  let moment = 0;
+  let axial = 0;
+  let across = 0;
+  for (let i = 0; i < n; i++) {
+    for (let j = 0; j < n; j++) {
+      for (let k = 0; k < n; k++) {
+        const [x, y, z] = [i, j, k].map((c) => ((c + 0.5) / n) * 2 - 1) as [
+          number,
+          number,
+          number,
+        ];
+        if (x * x + y * y + z * z > 1) continue;
+        const m = y < BASE_HEIGHT * 2 - 1 ? BASE : RESIN;
+        mass += m;
+        moment += m * y;
+        axial += m * (x * x + z * z);
+        across += m * (y * y + z * z);
+      }
+    }
+  }
+  const low = -moment / mass;
+  // Parallel axis: from the ball's centre to the lower centre of mass.
+  across -= mass * low * low;
+  const scale = radius ** 2 / mass;
   return {
     sides: 1,
     shape: "sphere",
@@ -158,9 +203,10 @@ function sphere(): DieSpec {
     readings: [{ dir: UP.clone(), value: 1 }],
     smooth: new Set(),
     bevel: 0,
-    radius: 0.85,
+    radius,
     collision: [],
-    ballast: 0.85 * 0.7,
+    ballast: radius * low,
+    inertia: v(across * scale, axial * scale, across * scale),
   };
 }
 
