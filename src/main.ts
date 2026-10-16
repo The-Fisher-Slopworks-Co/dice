@@ -46,10 +46,10 @@ const sound = new Sound();
 const shake = new ShakeDetector();
 
 /**
- * "dropping": a new die falling onto the table, not a roll, so no result.
- * "rolling": thrown, the result shows when it stops. "resting": shown.
+ * "rolling": thrown, or a new die tossed onto the table; the result shows
+ * when it stops. "resting": shown.
  */
-let phase: "dropping" | "rolling" | "resting" = "dropping";
+let phase: "rolling" | "resting" = "rolling";
 let spec: DieSpec = dieSpec(20);
 let rolls: number[] = [];
 const rotation = new Quaternion();
@@ -124,11 +124,11 @@ function choose(sides: number): void {
   const mesh = buildDieModel(spec, stage.maxAnisotropy);
   stage.setDie(mesh);
   table.setDie(spec);
-  phase = "dropping";
+  phase = "rolling";
   rolls = [];
   renderHistory();
   valueEl.textContent = "";
-  valueEl.dataset.state = "idle";
+  valueEl.dataset.state = "rolling";
   captionEl.textContent = `d${sides}`;
   twirlButton.hidden = sides !== 2;
   store.set("sides", String(sides));
@@ -337,8 +337,7 @@ stage.renderer.setAnimationLoop((now) => {
   if (phase !== "resting" && table.settled) {
     const outcome = readOutcome(spec, rotation);
     if (outcome.flatness < COCKED_BELOW) table.nudge();
-    else if (phase === "rolling") land(outcome.value);
-    else phase = "resting";
+    else land(outcome.value);
   }
   stage.render();
 });

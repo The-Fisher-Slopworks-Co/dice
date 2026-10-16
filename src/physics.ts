@@ -104,7 +104,10 @@ export class Table {
     die.position.z = clamp(die.position.z, bounds.minZ + r, bounds.maxZ - r);
   }
 
-  /** Replaces the die, dropping the new one onto the middle of the table. */
+  /**
+   * Replaces the die, tossing the new one onto the middle of the table with
+   * a throw's spin, so it lands on a face of its own: its first roll.
+   */
   setDie(spec: DieSpec): void {
     if (this.die) this.world.removeBody(this.die);
     this.damping = spec.shape === "sphere" ? 0.8 : TUMBLE_DAMPING;
@@ -129,11 +132,11 @@ export class Table {
       (this.bounds.minZ + this.bounds.maxZ) / 2,
     );
     die.quaternion.setFromEuler(Math.random() * 6, Math.random() * 6, 0);
-    die.angularVelocity.set(rand(-6, 6), rand(-6, 6), rand(-6, 6));
     this.world.addBody(die);
     this.die = die;
     this.dieRadius = spec.radius;
     this.ballast = spec.ballast;
+    this.spin(rand(22, 34));
     this.wake();
   }
 
